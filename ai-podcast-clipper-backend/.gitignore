@@ -1,8 +1,8 @@
 # Ignore video files
 *.mp4
 
-# Ignore temp directory
-asd/
+# Ignore all files inside asd directory but keep the directory structure
+asd/*
 
 # Ignore folder
 ./asd
