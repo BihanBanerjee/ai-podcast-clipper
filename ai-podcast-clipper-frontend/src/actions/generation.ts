@@ -1,3 +1,5 @@
+// Update src/actions/generation.ts
+
 "use server";
 
 import { GetObjectCommand, S3Client } from "@aws-sdk/client-s3";
@@ -8,7 +10,7 @@ import { inngest } from "~/inngest/client";
 import { auth } from "~/server/auth";
 import { db } from "~/server/db";
 
-export async function processVideo(uploadedFileId: string) {
+export async function processVideo(uploadedFileId: string, mode = "question") {
   const uploadedVideo = await db.uploadedFile.findUniqueOrThrow({
     where: {
       id: uploadedFileId,
@@ -24,7 +26,11 @@ export async function processVideo(uploadedFileId: string) {
 
   await inngest.send({
     name: "process-video-events",
-    data: { uploadedFileId: uploadedVideo.id, userId: uploadedVideo.userId },
+    data: { 
+      uploadedFileId: uploadedVideo.id, 
+      userId: uploadedVideo.userId,
+      mode: mode 
+    },
   });
 
   await db.uploadedFile.update({

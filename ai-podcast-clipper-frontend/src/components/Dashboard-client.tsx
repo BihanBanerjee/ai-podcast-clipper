@@ -28,6 +28,14 @@ import {
 import { Badge } from "./ui/badge";
 import { useRouter } from "next/navigation";
 import { ClipDisplay } from "./Clip-display";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "./ui/select";
+import { Label } from "./ui/label";
 
 export function DashboardClient({
   uploadedFiles,
@@ -46,7 +54,24 @@ export function DashboardClient({
   const [files, setFiles] = useState<File[]>([]);
   const [uploading, setUploading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [selectedMode, setSelectedMode] = useState("question");
   const router = useRouter();
+
+  // Define the clip modes
+  const clipModes = [
+    { value: "question", label: "Question & Answer", description: "Q&A segments and discussions" },
+    { value: "story", label: "Stories & Anecdotes", description: "Personal stories and experiences" },
+    { value: "quote", label: "Memorable Quotes", description: "Quotable moments and one-liners" },
+    { value: "controversial", label: "Hot Takes", description: "Controversial opinions and debates" },
+    { value: "educational", label: "Tips & Tutorials", description: "Educational content and advice" },
+    { value: "emotional", label: "Emotional Moments", description: "High emotion and genuine reactions" },
+    { value: "laughter", label: "Laughter Mode", description: "Funny moments and comedic segments" },
+    { value: "insight", label: "Key Insights", description: "Important realizations and insights" },
+    { value: "contradiction", label: "Contradiction Mode", description: "Disagreements and opposing views" },
+    { value: "vulnerability", label: "Vulnerability Mode", description: "Personal confessions and authentic sharing" },
+    { value: "actionable", label: "Actionable Mode", description: "Specific advice listeners can implement" },
+    { value: "energy", label: "Energy Spike Mode", description: "High-energy and passionate moments" }
+  ];
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -81,21 +106,21 @@ export function DashboardClient({
       });
 
       if (!uploadResponse.ok)
-        throw new Error(`Upload filed with status: ${uploadResponse.status}`);
+        throw new Error(`Upload failed with status: ${uploadResponse.status}`);
 
-      await processVideo(uploadedFileId);
+      // Pass the selected mode to processVideo
+      await processVideo(uploadedFileId, selectedMode);
 
       setFiles([]);
 
+      const selectedModeLabel = clipModes.find(m => m.value === selectedMode)?.label || selectedMode;
       toast.success("Video uploaded successfully", {
-        description:
-          "Your video has been scheduled for processing. Check the status below.",
+        description: `Processing with ${selectedModeLabel} mode. Check the status below.`,
         duration: 5000,
       });
     } catch (error) {
       toast.error("Upload failed", {
-        description:
-          "There was a problem uploading your video. Please try again.",
+        description: "There was a problem uploading your video. Please try again.",
       });
     } finally {
       setUploading(false);
@@ -161,7 +186,29 @@ export function DashboardClient({
                 )}
               </Dropzone>
 
-              <div className="mt-2 flex items-start justify-between">
+              {/* Mode Selection */}
+              <div className="mt-4 space-y-2">
+                <Label htmlFor="clip-mode">Clip Generation Mode</Label>
+                <Select value={selectedMode} onValueChange={setSelectedMode}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select clipping mode" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {clipModes.map((mode) => (
+                      <SelectItem key={mode.value} value={mode.value}>
+                        <div className="flex flex-col">
+                          <span className="font-medium">{mode.label}</span>
+                          <span className="text-sm text-muted-foreground">
+                            {mode.description}
+                          </span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="mt-4 flex items-start justify-between">
                 <div>
                   {files.length > 0 && (
                     <div className="space-y-1 text-sm">
@@ -270,7 +317,7 @@ export function DashboardClient({
               <CardTitle>My Clips</CardTitle>
               <CardDescription>
                 View and manage your generated clips here. Processing may take a
-                few minuntes.
+                few minutes.
               </CardDescription>
             </CardHeader>
             <CardContent>

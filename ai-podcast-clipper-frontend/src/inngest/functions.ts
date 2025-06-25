@@ -1,3 +1,5 @@
+// Update src/inngest/functions.ts
+
 import { env } from "~/env";
 import { inngest } from "./client";
 import { db } from "~/server/db";
@@ -14,9 +16,10 @@ export const processVideo = inngest.createFunction(
   },
   { event: "process-video-events" },
   async ({ event, step }) => {
-    const { uploadedFileId } = event.data as {
+    const { uploadedFileId, mode } = event.data as {
       uploadedFileId: string;
       userId: string;
+      mode?: string;
     };
 
     try {
@@ -60,7 +63,10 @@ export const processVideo = inngest.createFunction(
 
         await step.fetch(env.PROCESS_VIDEO_ENDPOINT, {
           method: "POST",
-          body: JSON.stringify({ s3_key: s3Key }),
+          body: JSON.stringify({ 
+            s3_key: s3Key,
+            mode: mode ?? "question"  // Default to question mode if not provided
+          }),
           headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer ${env.PROCESS_VIDEO_ENDPOINT_AUTH}`,
