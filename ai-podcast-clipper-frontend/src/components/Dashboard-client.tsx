@@ -113,7 +113,7 @@ export function DashboardClient({
 
       setFiles([]);
 
-      const selectedModeLabel = clipModes.find(m => m.value === selectedMode)?.label || selectedMode;
+      const selectedModeLabel = clipModes.find(m => m.value === selectedMode)?.label ?? selectedMode;
       toast.success("Video uploaded successfully", {
         description: `Processing with ${selectedModeLabel} mode. Check the status below.`,
         duration: 5000,
