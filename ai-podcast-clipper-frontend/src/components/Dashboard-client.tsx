@@ -188,17 +188,21 @@ export function DashboardClient({
 
               {/* Mode Selection */}
               <div className="mt-4 space-y-2">
-                <Label htmlFor="clip-mode">Clip Generation Mode</Label>
+                <Label htmlFor="clip-mode" className="mb-3">Clip Generation Mode</Label>
                 <Select value={selectedMode} onValueChange={setSelectedMode}>
-                  <SelectTrigger className="w-full">
+                  <SelectTrigger className="w-full h-12"> {/* Increased height */}
                     <SelectValue placeholder="Select clipping mode" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="max-h-[400px]"> {/* Increased max height */}
                     {clipModes.map((mode) => (
-                      <SelectItem key={mode.value} value={mode.value}>
-                        <div className="flex flex-col">
-                          <span className="font-medium">{mode.label}</span>
-                          <span className="text-sm text-muted-foreground">
+                      <SelectItem 
+                        key={mode.value} 
+                        value={mode.value}
+                        className="py-3 px-3" // Increased padding
+                      >
+                        <div className="flex flex-col space-y-1"> {/* Added space between items */}
+                          <span className="font-medium text-sm">{mode.label}</span>
+                          <span className="text-xs text-muted-foreground leading-relaxed">
                             {mode.description}
                           </span>
                         </div>

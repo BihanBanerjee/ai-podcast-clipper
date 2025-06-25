@@ -13,8 +13,7 @@ import {
 } from "./ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "./ui/avatar";
 import { signOut } from "next-auth/react";
-// import { useEffect } from "react";
-// import { toast } from "sonner";
+import { ThemeToggle } from "./theme-toggle";
 
 const NavHeader = ({ credits, email }: { credits: number; email: string }) => {
   return (
@@ -45,6 +44,9 @@ const NavHeader = ({ credits, email }: { credits: number; email: string }) => {
               <Link href="/dashboard/billing">Buy more</Link>
             </Button>
           </div>
+
+          {/* Simple Theme Toggle Button */}
+          <ThemeToggle />
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>

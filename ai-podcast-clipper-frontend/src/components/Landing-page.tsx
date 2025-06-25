@@ -16,6 +16,7 @@ import {
   ArrowRight,
   Sparkles
 } from "lucide-react";
+import { ThemeToggle } from "./theme-toggle";
 
 const LandingPage = () => {
   return (
@@ -29,6 +30,7 @@ const LandingPage = () => {
             <span className="text-foreground font-light">clipper</span>
           </div>
           <div className="flex items-center gap-4">
+            <ThemeToggle />
             <Link href="/login">
               <Button variant="ghost">Sign In</Button>
             </Link>
