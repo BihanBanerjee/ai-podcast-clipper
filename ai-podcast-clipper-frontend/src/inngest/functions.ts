@@ -26,7 +26,7 @@ export const processVideo = inngest.createFunction(
     try {
       let userId: string;
       let credits: number;
-      let s3Key: string | undefined;
+      let s3Key: string | null | undefined; // Allow null and undefined
 
       if (uploadedFileId) {
         // Existing S3 upload flow
@@ -48,7 +48,7 @@ export const processVideo = inngest.createFunction(
 
         userId = fileData.userId;
         credits = fileData.credits;
-        s3Key = fileData.s3Key;
+        s3Key = fileData.s3Key; // This can now be null
       } else {
         // YouTube URL flow - get user from event data
         const userData = await step.run("get-user-credits", async () => {
@@ -65,6 +65,7 @@ export const processVideo = inngest.createFunction(
 
         userId = userData.userId;
         credits = userData.credits;
+        s3Key = undefined; // Explicitly set to undefined for YouTube flow
       }
 
       if (credits > 0) {
@@ -84,7 +85,7 @@ export const processVideo = inngest.createFunction(
 
         if (youtubeUrl) {
           requestPayload.youtube_url = youtubeUrl;
-        } else if (s3Key) {
+        } else if (s3Key) { // Check if s3Key is truthy
           requestPayload.s3_key = s3Key;
         }
 
@@ -145,7 +146,11 @@ export const processVideo = inngest.createFunction(
               return { clipsFound: clipKeys.length, folderPrefix };
             } else {
               // Existing S3 flow
-              folderPrefix = s3Key!.split("/")[0]!;
+              if (!s3Key) {
+                throw new Error("s3Key is required for S3 upload flow");
+              }
+              
+              folderPrefix = s3Key.split("/")[0]!;
               const allKeys = await listS3ObjectsByPrefix(folderPrefix);
               const clipKeys = allKeys.filter(
                 (key): key is string =>
