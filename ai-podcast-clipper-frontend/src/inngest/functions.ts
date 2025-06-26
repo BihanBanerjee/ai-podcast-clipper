@@ -5,6 +5,19 @@ import { inngest } from "./client";
 import { db } from "~/server/db";
 import { ListObjectsV2Command, S3Client } from "@aws-sdk/client-s3";
 
+interface ProcessVideoEventData {
+  uploadedFileId?: string;
+  userId: string;
+  mode?: string;
+  youtubeUrl?: string;
+}
+
+interface RequestPayload {
+  mode: string;
+  youtube_url?: string;
+  s3_key?: string;
+}
+
 export const processVideo = inngest.createFunction(
   {
     id: "process-video",
@@ -16,17 +29,12 @@ export const processVideo = inngest.createFunction(
   },
   { event: "process-video-events" },
   async ({ event, step }) => {
-    const { uploadedFileId, mode, youtubeUrl } = event.data as {
-      uploadedFileId?: string;
-      userId: string;
-      mode?: string;
-      youtubeUrl?: string;
-    };
+    const { uploadedFileId, mode, youtubeUrl } = event.data as ProcessVideoEventData;
 
     try {
       let userId: string;
       let credits: number;
-      let s3Key: string | null | undefined; // Allow null and undefined
+      let s3Key: string | null | undefined;
 
       if (uploadedFileId) {
         // Existing S3 upload flow
@@ -48,12 +56,12 @@ export const processVideo = inngest.createFunction(
 
         userId = fileData.userId;
         credits = fileData.credits;
-        s3Key = fileData.s3Key; // This can now be null
+        s3Key = fileData.s3Key;
       } else {
         // YouTube URL flow - get user from event data
         const userData = await step.run("get-user-credits", async () => {
           const user = await db.user.findUniqueOrThrow({
-            where: { id: event.data.userId },
+            where: { id: (event.data as ProcessVideoEventData).userId },
             select: { id: true, credits: true },
           });
 
@@ -65,7 +73,7 @@ export const processVideo = inngest.createFunction(
 
         userId = userData.userId;
         credits = userData.credits;
-        s3Key = undefined; // Explicitly set to undefined for YouTube flow
+        s3Key = undefined;
       }
 
       if (credits > 0) {
@@ -79,13 +87,13 @@ export const processVideo = inngest.createFunction(
         }
 
         // Prepare request payload
-        const requestPayload: any = {
+        const requestPayload: RequestPayload = {
           mode: mode ?? "question",
         };
 
         if (youtubeUrl) {
           requestPayload.youtube_url = youtubeUrl;
-        } else if (s3Key) { // Check if s3Key is truthy
+        } else if (s3Key) {
           requestPayload.s3_key = s3Key;
         }
 
@@ -98,11 +106,9 @@ export const processVideo = inngest.createFunction(
           },
         });
 
-        const { clipsFound, folderPrefix } = await step.run(
+        const { clipsFound } = await step.run(
           "create-clips-in-db",
           async () => {
-            let folderPrefix: string;
-
             if (youtubeUrl) {
               // For YouTube videos, the backend generates s3_key with video ID
               // We need to list objects and find clips that were just created
@@ -111,10 +117,7 @@ export const processVideo = inngest.createFunction(
               // we'll search for recent clips in the youtube/ folder
               const allYouTubeKeys = await listS3ObjectsByPrefix("youtube/");
               
-              // Filter for clips created in the last 10 minutes and exclude original files
-              const now = Date.now();
-              const recentCutoff = now - 10 * 60 * 1000; // 10 minutes ago
-              
+              // Filter for clips and exclude original files
               const recentClipKeys = allYouTubeKeys.filter((key): key is string => {
                 if (!key || key.endsWith("original.mp4")) return false;
                 
@@ -137,20 +140,16 @@ export const processVideo = inngest.createFunction(
                     userId,
                   })),
                 });
-                
-                folderPrefix = "youtube";
-              } else {
-                folderPrefix = "youtube";
               }
 
-              return { clipsFound: clipKeys.length, folderPrefix };
+              return { clipsFound: clipKeys.length, folderPrefix: "youtube" };
             } else {
               // Existing S3 flow
               if (!s3Key) {
                 throw new Error("s3Key is required for S3 upload flow");
               }
               
-              folderPrefix = s3Key.split("/")[0]!;
+              const folderPrefix = s3Key.split("/")[0]!;
               const allKeys = await listS3ObjectsByPrefix(folderPrefix);
               const clipKeys = allKeys.filter(
                 (key): key is string =>
