@@ -12,11 +12,11 @@ import {
   CardHeader,
   CardTitle,
 } from "./ui/card";
-import { Loader2, UploadCloud } from "lucide-react";
+import { Loader2, UploadCloud, Youtube } from "lucide-react";
 import { useState } from "react";
 import { generateUploadUrl } from "~/actions/s3";
 import { toast } from "sonner";
-import { processVideo } from "~/actions/generation";
+import { processVideo, processYouTubeVideo } from "~/actions/generation";
 import {
   Table,
   TableBody,
@@ -36,6 +36,7 @@ import {
   SelectValue,
 } from "./ui/select";
 import { Label } from "./ui/label";
+import { Input } from "./ui/input";
 
 export function DashboardClient({
   uploadedFiles,
@@ -53,8 +54,11 @@ export function DashboardClient({
 }) {
   const [files, setFiles] = useState<File[]>([]);
   const [uploading, setUploading] = useState(false);
+  const [youtubeUrl, setYoutubeUrl] = useState("");
+  const [processingYoutube, setProcessingYoutube] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedMode, setSelectedMode] = useState("question");
+  const [uploadMethod, setUploadMethod] = useState<"file" | "youtube">("file");
   const router = useRouter();
 
   // Define the clip modes
@@ -83,7 +87,7 @@ export function DashboardClient({
     setFiles(acceptedFiles);
   };
 
-  const handleUpload = async () => {
+  const handleFileUpload = async () => {
     if (files.length === 0) return;
 
     const file = files[0]!;
@@ -127,6 +131,33 @@ export function DashboardClient({
     }
   };
 
+  const handleYouTubeSubmit = async () => {
+    if (!youtubeUrl.trim()) {
+      toast.error("Please enter a valid YouTube URL");
+      return;
+    }
+
+    setProcessingYoutube(true);
+
+    try {
+      await processYouTubeVideo(youtubeUrl, selectedMode);
+      
+      const selectedModeLabel = clipModes.find(m => m.value === selectedMode)?.label ?? selectedMode;
+      toast.success("YouTube video processing started", {
+        description: `Processing with ${selectedModeLabel} mode. This may take a few minutes.`,
+        duration: 5000,
+      });
+
+      setYoutubeUrl("");
+    } catch (error) {
+      toast.error("Processing failed", {
+        description: error instanceof Error ? error.message : "Failed to process YouTube video. Please try again.",
+      });
+    } finally {
+      setProcessingYoutube(false);
+    }
+  };
+
   return (
     <div className="mx-auto flex max-w-5xl flex-col space-y-6 px-4 py-8">
       <div className="flex items-center justify-between">
@@ -135,7 +166,7 @@ export function DashboardClient({
             Podcast Clipper
           </h1>
           <p className="text-muted-foreground">
-            Upload your podcast and get AI-generated clips instantly
+            Upload your podcast or provide a YouTube link to get AI-generated clips instantly
           </p>
         </div>
         <Link href="/dashboard/billing">
@@ -154,53 +185,101 @@ export function DashboardClient({
             <CardHeader>
               <CardTitle>Upload Podcast</CardTitle>
               <CardDescription>
-                Upload your audio or video file to generate clips
+                Upload your audio/video file or provide a YouTube link to generate clips
               </CardDescription>
             </CardHeader>
-            <CardContent>
-              <Dropzone
-                onDrop={handleDrop}
-                accept={{ "video/mp4": [".mp4"] }}
-                maxSize={500 * 1024 * 1024}
-                disabled={uploading}
-                maxFiles={1}
-              >
-                {(dropzone: DropzoneState) => (
-                  <>
-                    <div className="flex flex-col items-center justify-center space-y-4 rounded-lg p-10 text-center">
-                      <UploadCloud className="text-muted-foreground h-12 w-12" />
-                      <p className="font-medium">Drag and drop your file</p>
-                      <p className="text-muted-foreground text-sm">
-                        or click to browse (MP4 up to 500MB)
-                      </p>
-                      <Button
-                        className="cursor-pointer"
-                        variant="default"
-                        size="sm"
-                        disabled={uploading}
-                      >
-                        Select File
-                      </Button>
-                    </div>
-                  </>
-                )}
-              </Dropzone>
+            <CardContent className="space-y-6">
+              {/* Upload Method Selection */}
+              <div className="space-y-3">
+                <Label>Choose upload method</Label>
+                <div className="flex gap-4">
+                  <Button
+                    type="button"
+                    variant={uploadMethod === "file" ? "default" : "outline"}
+                    onClick={() => setUploadMethod("file")}
+                    className="flex items-center gap-2"
+                  >
+                    <UploadCloud className="h-4 w-4" />
+                    Upload File
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={uploadMethod === "youtube" ? "default" : "outline"}
+                    onClick={() => setUploadMethod("youtube")}
+                    className="flex items-center gap-2"
+                  >
+                    <Youtube className="h-4 w-4" />
+                    YouTube Link
+                  </Button>
+                </div>
+              </div>
+
+              {/* File Upload */}
+              {uploadMethod === "file" && (
+                <Dropzone
+                  onDrop={handleDrop}
+                  accept={{ "video/mp4": [".mp4"] }}
+                  maxSize={500 * 1024 * 1024}
+                  disabled={uploading}
+                  maxFiles={1}
+                >
+                  {(dropzone: DropzoneState) => (
+                    <>
+                      <div className="flex flex-col items-center justify-center space-y-4 rounded-lg p-10 text-center">
+                        <UploadCloud className="text-muted-foreground h-12 w-12" />
+                        <p className="font-medium">Drag and drop your file</p>
+                        <p className="text-muted-foreground text-sm">
+                          or click to browse (MP4 up to 500MB)
+                        </p>
+                        <Button
+                          className="cursor-pointer"
+                          variant="default"
+                          size="sm"
+                          disabled={uploading}
+                        >
+                          Select File
+                        </Button>
+                      </div>
+                    </>
+                  )}
+                </Dropzone>
+              )}
+
+              {/* YouTube URL Input */}
+              {uploadMethod === "youtube" && (
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="youtube-url">YouTube URL</Label>
+                    <Input
+                      id="youtube-url"
+                      type="url"
+                      placeholder="https://www.youtube.com/watch?v=..."
+                      value={youtubeUrl}
+                      onChange={(e) => setYoutubeUrl(e.target.value)}
+                      disabled={processingYoutube}
+                    />
+                  </div>
+                  <div className="text-sm text-muted-foreground">
+                    <p>Supported formats: YouTube video URLs (youtube.com/watch or youtu.be)</p>
+                  </div>
+                </div>
+              )}
 
               {/* Mode Selection */}
-              <div className="mt-4 space-y-2">
-                <Label htmlFor="clip-mode" className="mb-3">Clip Generation Mode</Label>
+              <div className="space-y-2">
+                <Label htmlFor="clip-mode">Clip Generation Mode</Label>
                 <Select value={selectedMode} onValueChange={setSelectedMode}>
-                  <SelectTrigger className="w-full h-12"> {/* Increased height */}
+                  <SelectTrigger className="w-full h-12">
                     <SelectValue placeholder="Select clipping mode" />
                   </SelectTrigger>
-                  <SelectContent className="max-h-[400px]"> {/* Increased max height */}
+                  <SelectContent className="max-h-[400px]">
                     {clipModes.map((mode) => (
                       <SelectItem 
                         key={mode.value} 
                         value={mode.value}
-                        className="py-3 px-3" // Increased padding
+                        className="py-3 px-3"
                       >
-                        <div className="flex flex-col space-y-1"> {/* Added space between items */}
+                        <div className="flex flex-col space-y-1">
                           <span className="font-medium text-sm">{mode.label}</span>
                           <span className="text-xs text-muted-foreground leading-relaxed">
                             {mode.description}
@@ -212,9 +291,10 @@ export function DashboardClient({
                 </Select>
               </div>
 
-              <div className="mt-4 flex items-start justify-between">
+              {/* Action Button */}
+              <div className="flex items-start justify-between">
                 <div>
-                  {files.length > 0 && (
+                  {uploadMethod === "file" && files.length > 0 && (
                     <div className="space-y-1 text-sm">
                       <p className="font-medium">Selected file:</p>
                       {files.map((file) => (
@@ -224,20 +304,45 @@ export function DashboardClient({
                       ))}
                     </div>
                   )}
-                </div>
-                <Button
-                  disabled={files.length === 0 || uploading}
-                  onClick={handleUpload}
-                >
-                  {uploading ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Uploading...
-                    </>
-                  ) : (
-                    "Upload and Generate Clips"
+                  {uploadMethod === "youtube" && youtubeUrl && (
+                    <div className="space-y-1 text-sm">
+                      <p className="font-medium">YouTube URL:</p>
+                      <p className="text-muted-foreground truncate max-w-md">
+                        {youtubeUrl}
+                      </p>
+                    </div>
                   )}
-                </Button>
+                </div>
+                
+                {uploadMethod === "file" ? (
+                  <Button
+                    disabled={files.length === 0 || uploading}
+                    onClick={handleFileUpload}
+                  >
+                    {uploading ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Uploading...
+                      </>
+                    ) : (
+                      "Upload and Generate Clips"
+                    )}
+                  </Button>
+                ) : (
+                  <Button
+                    disabled={!youtubeUrl.trim() || processingYoutube}
+                    onClick={handleYouTubeSubmit}
+                  >
+                    {processingYoutube ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Processing...
+                      </>
+                    ) : (
+                      "Process YouTube Video"
+                    )}
+                  </Button>
+                )}
               </div>
 
               {uploadedFiles.length > 0 && (

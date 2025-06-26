@@ -73,10 +73,12 @@ model User {
 
 model UploadedFile {
     id        String      @id @default(cuid())
-    s3Key     String
+    s3Key     String?     // Make optional since YouTube videos don't have initial S3 key
+    youtubeUrl String?    // Add YouTube URL field
     displayName String
     uploaded  Boolean    @default(false)
     status    String     @default("queued") // processing, processed, no credits
+    source    String     @default("upload") // "upload" or "youtube"
     createdAt DateTime @default(now())
     updatedAt DateTime @updatedAt
 
@@ -86,6 +88,7 @@ model UploadedFile {
     userId String
 
     @@index([s3Key])
+    @@index([youtubeUrl])
 }
 
 model Clip {

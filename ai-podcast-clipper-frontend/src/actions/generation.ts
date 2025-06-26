@@ -45,6 +45,30 @@ export async function processVideo(uploadedFileId: string, mode = "question") {
   revalidatePath("/dashboard");
 }
 
+export async function processYouTubeVideo(youtubeUrl: string, mode = "question") {
+  const session = await auth();
+  if (!session?.user?.id) {
+    throw new Error("Unauthorized");
+  }
+
+  // Validate YouTube URL (basic validation)
+  const youtubeRegex = /^(https?:\/\/)?(www\.)?(youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)/;
+  if (!youtubeRegex.test(youtubeUrl)) {
+    throw new Error("Invalid YouTube URL");
+  }
+
+  await inngest.send({
+    name: "process-video-events",
+    data: { 
+      userId: session.user.id,
+      youtubeUrl: youtubeUrl,
+      mode: mode 
+    },
+  });
+
+  revalidatePath("/dashboard");
+}
+
 export async function getClipPlayUrl(
   clipId: string,
 ): Promise<{ succes: boolean; url?: string; error?: string }> {
